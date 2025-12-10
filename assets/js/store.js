@@ -17,7 +17,11 @@ const Store = {
             { id: 1, name: "Roco Wireless Headphone", price: "49.00", oldPrice: "60.00", category: "Accessories", image: "assets/images/product/electric/product-01.png", stock: 15, sold: 120 },
             { id: 2, name: "Smart Digital Watch", price: "100.00", category: "Electronics", image: "assets/images/product/electric/product-02.png", stock: 5, sold: 45 },
             { id: 3, name: "Logitech Streamcam", price: "29.99", oldPrice: "49.99", category: "Computers", image: "assets/images/product/electric/product-03.png", stock: 50, sold: 12 },
-            { id: 4, name: "Gaming Mouse", price: "35.00", category: "Computers", image: "assets/images/product/electric/product-08.png", stock: 8, sold: 200 }
+            { id: 4, name: "Gaming Mouse", price: "35.00", category: "Computers", image: "assets/images/product/electric/product-08.png", stock: 8, sold: 200 },
+            { id: 5, name: "Google Home", price: "129.00", category: "Electronics", image: "assets/images/product/electric/product-07.png", stock: 20, sold: 75 },
+            { id: 6, name: "Bass Meets Clarity", price: "39.99", category: "Accessories", image: "assets/images/product/electric/product-05.png", stock: 30, sold: 15 },
+            { id: 7, name: "Mice Logitech", price: "25.00", category: "Computers", image: "assets/images/product/electric/product-06.png", stock: 100, sold: 300 },
+            { id: 8, name: "3D Wireless Headset", price: "55.00", category: "Accessories", image: "assets/images/product/electric/product-04.png", stock: 12, sold: 88 }
         ],
         settings: {
             siteName: "Digiflow Store",

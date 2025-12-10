@@ -1,0 +1,12 @@
+{
+    "rewrites": [
+        {
+            "source": "/webhooks/mpesa",
+            "destination": "/api/webhooks/mpesa"
+        },
+        {
+            "source": "/(.*)",
+            "destination": "/$1"
+        }
+    ]
+}

@@ -12,10 +12,8 @@ const PaymentModule = {
     // Configuration
     config: {
         publishableKey: 'lip_pk_live_3c6a73bc0896c6f0f2b2ad47e4760abe0329df9036004ac504db9ef1fd58fcda',
-        // SECRET KEY SHOULD NEVER BE IN CLIENT-SIDE CODE
-        // This should be stored securely on your backend server
-        apiEndpoint: '/api/payment', // Your backend endpoint
-        currency: 'KES'
+        currency: 'KES',
+        isLive: true // Set to false for test environment
     },
 
     init() {
@@ -97,6 +95,14 @@ const PaymentModule = {
     },
 
     async processCheckout() {
+        // Double check authentication
+        if (!AuthModule.isAuthenticated()) {
+            alert("You must be logged in to complete a purchase.");
+            const returnUrl = window.location.href;
+            window.location.href = `sign-in.html?redirect=${encodeURIComponent(returnUrl)}`;
+            return;
+        }
+
         const paymentMethod = document.querySelector('input[name="paymentMethod"]:checked').value;
         const statusDiv = document.getElementById('paymentStatus');
 
@@ -135,49 +141,73 @@ const PaymentModule = {
         `;
 
         try {
-            // Create order in Supabase first
-            const order = await SupabaseDB.addOrder({
+            // Create order object
+            const orderData = {
                 customer_name: customerName,
                 customer_email: customerEmail,
                 customer_phone: customerPhone,
-                total: cartTotal,
-                items: cart,
-                payment_method: 'M-Pesa',
-                status: 'pending'
+                total: parseFloat(cartTotal),
+                items: cart.map(i => ({
+                    product_id: i.id,
+                    name: i.name,
+                    qty: i.qty,
+                    price: i.price
+                })),
+                payment_method: 'M-Pesa (IntaSend)',
+                payment_status: 'pending',
+                status: 'pending',
+                created_at: new Date().toISOString()
+            };
+
+            // Save order to Supabase
+            const { data: savedOrder, error } = await SupabaseDB.addOrder(orderData);
+
+            if (error) throw error;
+            const orderId = savedOrder ? savedOrder.id : ('ORD-' + Date.now()); // Fallback ID if DB fails but we proceed
+
+            console.log('Order created:', orderId);
+
+            // Initialize IntaSend
+            const intaSend = new window.IntaSend({
+                publicAPIKey: this.config.publishableKey,
+                live: this.config.isLive
             });
 
-            // In a real implementation, this would call your backend API
-            // which would then communicate with the Lipanampesa/M-Pesa API
-            const response = await this.callPaymentAPI({
-                phoneNumber: phoneNumber,
+            // Prepare payment handlers
+            intaSend.on("COMPLETE", (response) => {
+                console.log("Payment COMPLETE:", response);
+                this.handlePaymentSuccess(response.transaction_id, orderId);
+            });
+
+            intaSend.on("FAILED", (response) => {
+                console.log("Payment FAILED:", response);
+                SupabaseDB.updateOrderStatus(orderId, 'failed');
+                this.showError("Payment failed. Please try again.");
+            });
+
+            intaSend.on("IN-PROGRESS", () => {
+                console.log("Payment IN-PROGRESS");
+                statusDiv.innerHTML = `
+                    <div class="alert alert-info">
+                        <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                        Processing payment... Check your phone.
+                    </div>
+                `;
+            });
+
+            // Trigger Payment
+            // We use the SDK to handle the M-Pesa push
+            intaSend.run({
                 amount: cartTotal,
                 currency: this.config.currency,
-                description: 'Digiflow Store Purchase',
-                orderId: order.id
+                email: customerEmail,
+                phone_number: customerPhone, // optional, pre-fills if provided
+                api_ref: orderId // track this order
             });
 
-            if (response.success) {
-                // Save payment transaction to Supabase
-                await this.savePaymentTransaction({
-                    order_id: order.id,
-                    transaction_id: response.transactionId,
-                    phone_number: phoneNumber,
-                    amount: cartTotal,
-                    status: 'initiated',
-                    payment_method: 'M-Pesa'
-                });
-
-                this.showSuccess('Payment initiated! Please check your phone for the M-Pesa prompt.');
-                // Poll for payment status
-                this.pollPaymentStatus(response.transactionId, order.id);
-            } else {
-                // Update order status to failed
-                await SupabaseDB.updateOrderStatus(order.id, 'failed');
-                this.showError(response.message || 'Payment failed. Please try again.');
-            }
         } catch (error) {
-            console.error('Payment error:', error);
-            this.showError('An error occurred while processing your payment. Please try again.');
+            console.error('Payment initialization error:', error);
+            this.showError('Could not initialize payment: ' + (error.message || 'Unknown error'));
         }
     },
 

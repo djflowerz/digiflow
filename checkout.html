@@ -94,19 +94,6 @@
                                 <li><a href="about-us.html">About</a></li>
                                 <li><a href="contact.html">Contact</a></li>
                             </ul>
-                            </li>
-                            <li class="menu-item-has-children">
-                                <a href="shop.html">Shop</a>
-                                <ul class="axil-submenu">
-                                    <li><a href="shop-sidebar.html">Shop With Sidebar</a></li>
-                                    <li><a href="shop.html">Shop no Sidebar</a></li>
-                                    <li><a href="single-product.html">Product Details</a></li>
-                                </ul>
-                            </li>
-                            <li><a href="about-us.html">About</a></li>
-
-                            <li><a href="contact.html">Contact</a></li>
-                            </ul>
                         </nav>
                     </div>
                     <div class="header-action">
@@ -162,7 +149,7 @@
     <main class="main-wrapper">
         <div class="axil-checkout-area axil-section-gap">
             <div class="container">
-                <form id="checkoutForm" onsubmit="processCheckout(event)">
+                <form id="checkoutForm" action="#">
                     <div class="row">
                         <div class="col-lg-6">
                             <div class="axil-checkout-billing">
@@ -280,12 +267,15 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="assets/js/supabase-client.js"></script>
     <script src="assets/js/auth.js"></script>
+    <script src="assets/js/auth.js"></script>
+    <script src="assets/js/route-guard.js"></script>
     <script src="assets/js/customer-profile.js"></script>
     <script src="assets/js/supabase-db.js"></script>
     <script src="assets/js/ui-helpers.js"></script>
     <script src="assets/js/payment.js"></script>
     <script src="assets/js/coupons.js"></script>
     <script src="assets/js/store.js"></script>
+    <script src="https://unpkg.com/intasend-inlinejs-sdk@3.0.4/dist/inline.js"></script>
 
     <script>
         // Initialize coupon module
@@ -297,10 +287,15 @@
     </script>
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
+            // Initialize Auth and Protect Page
+            await AuthModule.init();
+            if (!RouteGuard.protectUserPage()) {
+                return; // Stop execution if redirecting
+            }
+
             updateMiniCart();
 
             // Pre-fill user data if authenticated
-            await AuthModule.init();
             if (AuthModule.isAuthenticated()) {
                 await prefillUserData();
             }
@@ -394,122 +389,52 @@
                 document.getElementById('checkoutTotal').innerText = `KES ${Store.getCartTotal()}`;
             }
         }
-
-        async function processCheckout(e) {
-            e.preventDefault();
-            const fname = document.getElementById('fname').value;
-            const lname = document.getElementById('lname').value;
-            const email = document.getElementById('email').value;
-            const phone = document.getElementById('phone').value;
-
-            const cart = Store.getCart();
-            const total = Store.getCartTotal();
-
-            if (cart.length === 0) {
-                alert("Your cart is empty!");
-                return;
-            }
-
-            // Validate phone number format (254XXXXXXXXX)
-            const phoneRegex = /^254[0-9]{9}$/;
-            if (!phoneRegex.test(phone)) {
-                alert("Please enter a valid M-Pesa phone number in format: 254XXXXXXXXX");
-                return;
-            }
-
-            // Show loading state
-            const submitBtn = document.querySelector('.checkout-btn[type="submit"]');
-            const originalText = submitBtn.innerHTML;
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-
-            try {
-                // Create order object
-                const order = {
-                    customer_name: `${fname} ${lname}`,
-                    customer_email: email,
-                    customer_phone: phone,
-                    total: parseFloat(total),
-                    items: cart.map(i => ({
-                        product_id: i.id,
-                        name: i.name,
-                        qty: i.qty,
-                        price: i.price
-                    })),
-                    payment_method: 'M-Pesa',
-                    payment_status: 'pending',
-                    status: 'pending',
-                    created_at: new Date().toISOString()
-                };
-
-                // Save order to Supabase
-                let savedOrder;
-                try {
-                    savedOrder = await SupabaseDB.addOrder(order);
-                    console.log('Order saved to Supabase:', savedOrder);
-
-                    // Update product stock for each item
-                    for (const item of cart) {
-                        try {
-                            const product = await SupabaseDB.getProduct(item.id);
-                            if (product) {
-                                await SupabaseDB.updateProduct(item.id, {
-                                    stock: Math.max(0, product.stock - item.qty),
-                                    sold: (product.sold || 0) + item.qty
-                                });
-                            }
-                        } catch (stockError) {
-                            console.error('Error updating stock for product:', item.id, stockError);
-                        }
-                    }
-                } catch (dbError) {
-                    console.error('Error saving to Supabase:', dbError);
-                    // Fallback to localStorage
-                    Store.placeOrder(order);
-                }
-
-                // Initiate M-Pesa STK Push (simulated for now)
-                const paymentResult = await initiateSTKPush({
-                    phoneNumber: phone,
-                    amount: total,
-                    customerName: `${fname} ${lname}`,
-                    customerEmail: email
-                });
-
-                if (paymentResult.success) {
-                    // Clear cart
-                    Store.clearCart();
-
-                    alert("Payment initiated! Please check your phone for the M-Pesa prompt.");
-                    window.location.href = "index.html?payment=success";
-                } else {
-                    throw new Error(paymentResult.message || "Payment initiation failed");
-                }
-            } catch (error) {
-                console.error('Checkout error:', error);
-                alert("Error processing payment: " + error.message);
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = originalText;
-            }
-        }
-
-        // M-Pesa STK Push simulation
-        async function initiateSTKPush(paymentData) {
-            // Simulate API call delay
-            await new Promise(resolve => setTimeout(resolve, 1500));
-
-            // In production, this would call your backend API
-            // which would then communicate with M-Pesa Daraja API
-            console.log('Initiating STK Push for:', paymentData);
-
-            // Simulate successful payment initiation
-            return {
-                success: true,
-                transactionId: 'TXN' + Date.now(),
-                message: 'STK push sent to phone'
-            };
-        }
     </script>
+    <!-- JS
+============================================ -->
+    <!-- Modernizer JS -->
+    <script src="assets/js/vendor/modernizr.min.js"></script>
+    <!-- jQuery JS -->
+    <script src="assets/js/vendor/jquery.js"></script>
+    <!-- Bootstrap JS -->
+    <script src="assets/js/vendor/popper.min.js"></script>
+    <script src="assets/js/vendor/bootstrap.min.js"></script>
+    <script src="assets/js/vendor/slick.min.js"></script>
+    <script src="assets/js/vendor/js.cookie.js"></script>
+    <script src="assets/js/vendor/jquery-ui.min.js"></script>
+    <script src="assets/js/vendor/jquery.ui.touch-punch.min.js"></script>
+    <script src="assets/js/vendor/jquery.countdown.min.js"></script>
+    <script src="assets/js/vendor/sal.js"></script>
+    <script src="assets/js/vendor/jquery.magnific-popup.min.js"></script>
+    <script src="assets/js/vendor/imagesloaded.pkgd.min.js"></script>
+    <script src="assets/js/vendor/isotope.pkgd.min.js"></script>
+    <script src="assets/js/vendor/counterup.js"></script>
+    <script src="assets/js/vendor/waypoints.min.js"></script>
+
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="assets/js/supabase-client.js"></script>
+    <script src="assets/js/supabase-db.js"></script>
+
+    <!-- IntaSend Payment -->
+    <script src="https://unpkg.com/intasend-inlinejs-sdk@3.0.4/dist/inline.js"></script>
+
+    <script src="assets/js/auth.js"></script>
+    <script src="assets/js/store.js"></script>
+    <script src="assets/js/payment.js"></script>
+
+    <!-- Main JS -->
+    <script src="assets/js/main.js"></script>
+
+    <script>
+        // Initialize payment module when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            if (typeof PaymentModule !== 'undefined') {
+                PaymentModule.init();
+            }
+        });
+    </script>
+
 </body>
 
 </html>

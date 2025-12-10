@@ -1,0 +1,8 @@
+{
+  "name": "digiflow-store",
+  "version": "1.0.0",
+  "description": "Digiflow Store with Supabase and M-Pesa",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0"
+  }
+}
