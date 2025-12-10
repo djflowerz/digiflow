@@ -161,7 +161,7 @@ const PaymentModule = {
                     qty: i.qty,
                     price: i.price
                 })),
-                payment_method: 'M-Pesa (IntaSend)',
+                payment_method: 'M-Pesa (Lipana)',
                 payment_status: 'pending',
                 status: 'pending',
                 created_at: new Date().toISOString()
@@ -171,47 +171,42 @@ const PaymentModule = {
             const { data: savedOrder, error } = await SupabaseDB.addOrder(orderData);
 
             if (error) throw error;
-            const orderId = savedOrder ? savedOrder.id : ('ORD-' + Date.now()); // Fallback ID if DB fails but we proceed
+            const orderId = savedOrder ? savedOrder.id : ('ORD-' + Date.now());
 
             console.log('Order created:', orderId);
 
-            // Initialize IntaSend
-            const intaSend = new window.IntaSend({
-                publicAPIKey: this.config.publishableKey,
-                live: this.config.isLive
+            // Call Vercel Function for Lipana STK Push
+            const response = await fetch('/api/mpesa/initiate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    amount: cartTotal,
+                    phone: customerPhone,
+                    orderId: orderId
+                })
             });
 
-            // Prepare payment handlers
-            intaSend.on("COMPLETE", (response) => {
-                console.log("Payment COMPLETE:", response);
-                this.handlePaymentSuccess(response.transaction_id, orderId);
-            });
+            const result = await response.json();
 
-            intaSend.on("FAILED", (response) => {
-                console.log("Payment FAILED:", response);
-                SupabaseDB.updateOrderStatus(orderId, 'failed');
-                this.showError("Payment failed. Please try again.");
-            });
+            if (!response.ok) {
+                throw new Error(result.error || 'Payment initiation failed');
+            }
 
-            intaSend.on("IN-PROGRESS", () => {
-                console.log("Payment IN-PROGRESS");
-                statusDiv.innerHTML = `
-                    <div class="alert alert-info">
-                        <div class="spinner-border spinner-border-sm me-2" role="status"></div>
-                        Processing payment... Check your phone.
-                    </div>
-                `;
-            });
+            // If successful
+            console.log("Lipana Payment Initiated:", result);
 
-            // Trigger Payment
-            // We use the SDK to handle the M-Pesa push
-            intaSend.run({
-                amount: cartTotal,
-                currency: this.config.currency,
-                email: customerEmail,
-                phone_number: customerPhone, // optional, pre-fills if provided
-                api_ref: orderId // track this order
-            });
+            statusDiv.innerHTML = `
+                <div class="alert alert-info">
+                    <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                    STK Push Sent! Please check your phone to complete payment.
+                </div>
+            `;
+
+            // Start polling or waiting for webhook confirmation via Supabase subscription
+            // Here we use the existing polling mock or you can rely on the webhook updating the status
+            this.pollPaymentStatus(result.transaction_id || orderId, orderId);
 
         } catch (error) {
             console.error('Payment initialization error:', error);

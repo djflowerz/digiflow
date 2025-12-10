@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Digiflow Store with Supabase and M-Pesa",
   "dependencies": {
-    "@supabase/supabase-js": "^2.39.0"
+    "@supabase/supabase-js": "^2.47.10",
+    "@lipana/sdk": "^1.0.2"
   }
 }

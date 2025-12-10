@@ -5,6 +5,10 @@
             "destination": "/api/webhooks/mpesa"
         },
         {
+            "source": "/api/mpesa/initiate",
+            "destination": "/api/mpesa/initiate.js"
+        },
+        {
             "source": "/(.*)",
             "destination": "/$1"
         }
