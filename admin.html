@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard | Digiflow</title>
+    <link rel="stylesheet" href="assets/css/vendor/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            display: flex;
+            min-height: 100vh;
+            background-color: #f8f9fa;
+        }
+
+        .sidebar {
+            width: 260px;
+            background: #343a40;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            height: 100vh;
+        }
+
+        .sidebar a {
+            color: #adb5bd;
+            padding: 15px 20px;
+            text-decoration: none;
+            display: block;
+            border-bottom: 1px solid #495057;
+        }
+
+        .sidebar a:hover,
+        .sidebar a.active {
+            background: #495057;
+            color: white;
+        }
+
+        .sidebar .brand {
+            padding: 20px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            background: #212529;
+            color: white;
+        }
+
+        .main-content {
+            flex: 1;
+            margin-left: 260px;
+            padding: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            margin-bottom: 20px;
+        }
+
+        .stat-card h3 {
+            font-size: 2rem;
+            margin-bottom: 5px;
+        }
+
+        .stat-card p {
+            color: #6c757d;
+            margin: 0;
+        }
+
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        .badge-stock-low {
+            background: #ffc107;
+            color: black;
+        }
+
+        .badge-stock-out {
+            background: #dc3545;
+            color: white;
+        }
+
+        .order-pending {
+            color: #ffc107;
+            font-weight: bold;
+        }
+
+        .order-completed {
+            color: #198754;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Authentication Modal -->
+    <div class="modal fade" id="authModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Admin Authentication</h5>
+                </div>
+                <div class="modal-body">
+                    <!-- Login Form Only (Single Admin Mode) -->
+                    <div class="tab-content">
+                        <!-- Login Tab -->
+                        <div class="tab-pane fade show active" id="login">
+                            <form id="loginForm">
+                                <div class="mb-3">
+                                    <label class="form-label">Email</label>
+                                    <input type="email" class="form-control" id="loginEmail" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Password</label>
+                                    <input type="password" class="form-control" id="loginPassword" required
+                                        minlength="8">
+                                </div>
+                                <div id="loginError" class="alert alert-danger d-none"></div>
+                                <button type="submit" class="btn btn-primary w-100">Login</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="brand">Digiflow Admin</div>
+        <a href="#" onclick="showSection('dashboard', this)" class="active"><i class="fas fa-chart-line me-2"></i>
+            Dashboard</a>
+        <a href="#" onclick="showSection('products', this)"><i class="fas fa-box me-2"></i> Products</a>
+        <a href="#" onclick="showSection('orders', this)"><i class="fas fa-shopping-cart me-2"></i> Orders</a>
+        <a href="#" onclick="showSection('inventory', this)"><i class="fas fa-warehouse me-2"></i> Inventory</a>
+        <a href="#" onclick="showSection('home-editor', this)"><i class="fas fa-home me-2"></i> Homepage</a>
+        <a href="#" onclick="showSection('settings', this)"><i class="fas fa-cog me-2"></i> Settings</a>
+        <div class="mt-auto">
+            <a href="index.html"><i class="fas fa-external-link-alt me-2"></i> View Site</a>
+            <a href="#" onclick="handleLogout()" id="logoutBtn"><i class="fas fa-sign-out-alt me-2"></i> Logout</a>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+
+        <!-- DASHBOARD SECTION -->
+        <div id="dashboard" class="section active">
+            <h2 class="mb-4">Overview</h2>
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="stat-card border-start border-4 border-primary">
+                        <h3 id="statRevenue">KES 0</h3>
+                        <p>Total Revenue</p>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card border-start border-4 border-success">
+                        <h3 id="statOrders">0</h3>
+                        <p>Total Orders</p>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card border-start border-4 border-warning">
+                        <h3 id="statLowStock">0</h3>
+                        <p>Low Stock Items</p>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card border-start border-4 border-info">
+                        <h3 id="statProducts">0</h3>
+                        <p>Active Products</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mt-4">
+                <div class="col-md-8">
+                    <div class="card p-3 shadow-sm">
+                        <h5>Sales Analytics</h5>
+                        <canvas id="salesChart" height="150"></canvas>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card p-3 shadow-sm">
+                        <h5>Recent Activity</h5>
+                        <ul class="list-group list-group-flush" id="activityLog">
+                            <!-- JS Populated -->
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- INVENTORY ALERTS -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div id="inventoryAlerts">
+                    <!-- Alerts will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <!-- PRODUCTS SECTION -->
+        <div id="products" class="section">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>Product Management</h2>
+                <button class="btn btn-primary" onclick="openProductModal()"><i class="fas fa-plus"></i> Add
+                    Product</button>
+            </div>
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Image</th>
+                                <th>Name</th>
+                                <th>Price</th>
+                                <th>Stock</th>
+                                <th>Sold</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productTableBody">
+                            <!-- JS Populated -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ORDERS SECTION -->
+        <div id="orders" class="section">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>Order Management</h2>
+                <button class="btn btn-outline-secondary btn-sm" onclick="simulateOrder()">Simulate New Order</button>
+            </div>
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Order ID</th>
+                                <th>Customer</th>
+                                <th>Date</th>
+                                <th>Total</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orderTableBody">
+                            <!-- JS Populated -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- INVENTORY SECTION -->
+        <div id="inventory" class="section">
+            <h2 class="mb-4">Inventory Control</h2>
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <strong>Tip:</strong> Products with stock less than 10 are highlighted.
+                    </div>
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Current Stock</th>
+                                <th>Sold Count</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventoryTableBody">
+                            <!-- JS Populated -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- HOME EDITOR SECTION -->
+    <div id="home-editor" class="section">
+        <h2 class="mb-4">Homepage Editor</h2>
+        <ul class="nav nav-tabs mb-4" id="homeTabs">
+            <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-hot">Hot This Week</a></li>
+            <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-new">New Arrivals</a></li>
+            <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-sold">Most Sold</a></li>
+            <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-explore">Explore Products</a></li>
+            <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-dontmiss">Don't Miss</a></li>
+        </ul>
+
+        <div class="tab-content card shadow-sm p-4">
+            <!-- Hot This Week -->
+            <div class="tab-pane fade show active" id="tab-hot">
+                <h4>Select Products for 'Hot This Week'</h4>
+                <p class="text-muted">Check the products you want to appear in the top slider.</p>
+                <div id="hotProductList" class="row"></div>
+            </div>
+            <!-- New Arrivals -->
+            <div class="tab-pane fade" id="tab-new">
+                <h4>Select Products for 'New Arrivals'</h4>
+                <div id="newProductList" class="row"></div>
+            </div>
+            <!-- Most Sold -->
+            <div class="tab-pane fade" id="tab-sold">
+                <h4>Select Products for 'Most Sold'</h4>
+                <div id="soldProductList" class="row"></div>
+            </div>
+            <!-- Explore Products -->
+            <div class="tab-pane fade" id="tab-explore">
+                <h4>Select Products for 'Explore Our Products'</h4>
+                <div id="exploreProductList" class="row"></div>
+            </div>
+            <!-- Don't Miss -->
+            <div class="tab-pane fade" id="tab-dontmiss">
+                <h4>'Don't Miss' Banner Settings</h4>
+                <div class="mb-3">
+                    <label>Title</label>
+                    <input type="text" id="dmTitle" class="form-control">
+                </div>
+                <div class="mb-3">
+                    <label>Subtitle</label>
+                    <input type="text" id="dmSubtitle" class="form-control">
+                </div>
+                <div class="mb-3">
+                    <label>Background Image URL</label>
+                    <input type="text" id="dmImage" class="form-control">
+                </div>
+                <div class="mb-3">
+                    <label>Link URL</label>
+                    <input type="text" id="dmLink" class="form-control">
+                </div>
+            </div>
+        </div>
+        <button class="btn btn-primary mt-3" onclick="saveHomeSettings()">Save Homepage Settings</button>
+    </div>
+
+    <!-- SETTINGS SECTION -->
+    <div id="settings" class="section">
+        <h2 class="mb-4">Store Settings</h2>
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card shadow-sm p-4">
+                    <h4>General Settings</h4>
+                    <div class="mb-3">
+                        <label>Store Name</label>
+                        <input type="text" id="setSiteName" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label>Currency</label>
+                        <input type="text" id="setCurrency" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label>Tax Rate (%)</label>
+                        <input type="number" id="setTax" class="form-control">
+                    </div>
+                    <button class="btn btn-primary" onclick="saveSettings()">Save General</button>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card shadow-sm p-4">
+                    <h4>Payment (M-Pesa)</h4>
+                    <div class="mb-3">
+                        <label>Consumer Key</label>
+                        <input type="text" id="setMpesaKey" class="form-control" placeholder="Ck_...">
+                    </div>
+                    <div class="mb-3">
+                        <label>Consumer Secret</label>
+                        <input type="password" id="setMpesaSecret" class="form-control" placeholder="Cs_...">
+                    </div>
+                    <button class="btn btn-primary" onclick="saveSettings()">Save API Keys</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    </div>
+
+    <!-- Product Modal -->
+    <div class="modal fade" id="productModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalTitle">Add Product</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="productForm">
+                        <input type="hidden" id="editId">
+                        <div class="row mb-2">
+                            <div class="col-md-8">
+                                <label>Name</label>
+                                <input type="text" id="pName" class="form-control" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label>Visibility</label>
+                                <div class="form-check form-switch mt-2">
+                                    <input class="form-check-input" type="checkbox" id="pVisibility" checked>
+                                    <label class="form-check-label" for="pVisibility">Show on Site</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-2">
+                            <label>Description</label>
+                            <textarea id="pDescription" class="form-control" rows="3"></textarea>
+                        </div>
+
+                        <div class="row mb-2">
+                            <div class="col-md-4">
+                                <label>Price</label>
+                                <input type="number" id="pPrice" class="form-control" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label>Discount (%)</label>
+                                <input type="number" id="pDiscount" class="form-control" placeholder="0">
+                            </div>
+                            <div class="col-md-4">
+                                <label>Stock</label>
+                                <input type="number" id="pStock" class="form-control" required>
+                            </div>
+                        </div>
+
+                        <div class="row mb-2">
+                            <div class="col-md-6">
+                                <label>Category</label>
+                                <select id="pCategory" class="form-select">
+                                    <option value="Electronics">Electronics</option>
+                                    <option value="Computers">Computers</option>
+                                    <option value="Phones">Phones</option>
+                                    <option value="Accessories">Accessories</option>
+                                    <option value="Fashion">Fashion</option>
+                                    <option value="Furniture">Furniture</option>
+                                    <option value="Home & Garden">Home & Garden</option>
+                                    <option value="Toys">Toys</option>
+                                    <option value="Music">Music</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label>Subcategory</label>
+                                <input type="text" id="pSubcategory" class="form-control"
+                                    placeholder="e.g. Smartwatches">
+                            </div>
+                        </div>
+
+                        <div class="row mb-2">
+                            <div class="col-md-4">
+                                <label>Sizes</label>
+                                <input type="text" id="pSizes" class="form-control" placeholder="S, M, L">
+                            </div>
+                            <div class="col-md-4">
+                                <label>Colors</label>
+                                <input type="text" id="pColors" class="form-control" placeholder="Red, Blue">
+                            </div>
+                            <div class="col-md-4">
+                                <label>Models</label>
+                                <input type="text" id="pModels" class="form-control" placeholder="v1, v2">
+                            </div>
+                        </div>
+
+                        <div class="mb-2">
+                            <label>Show in Homepage Sections:</label>
+                            <div class="d-flex flex-wrap gap-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="addHot">
+                                    <label class="form-check-label" for="addHot">Hot This Week</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="addNew">
+                                    <label class="form-check-label" for="addNew">New Arrivals</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="addExplore">
+                                    <label class="form-check-label" for="addExplore">Explore Products</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="addSold">
+                                    <label class="form-check-label" for="addSold">Most Sold</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-2">
+                            <label>Main Image</label>
+                            <input type="file" id="pImageFile" class="form-control">
+                        </div>
+
+                        <div class="mb-2">
+                            <label>Additional Images</label>
+                            <div id="extraImagesContainer">
+                                <!-- Dynamic Inputs will be added here -->
+                            </div>
+                            <button type="button" class="btn btn-sm btn-secondary mt-2" onclick="addImageField()">+ Add
+                                Another Image</button>
+                        </div>
+
+                        <div class="mt-2 text-muted small">
+                            <span id="editInfo"></span>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary" onclick="saveProduct()">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="assets/js/vendor/bootstrap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="assets/js/supabase-client.js"></script>
+    <script src="assets/js/auth.js"></script>
+    <script src="assets/js/supabase-db.js"></script>
+    <script src="assets/js/route-guard.js"></script>
+
+    <script src="assets/js/store.js"></script>
+
+    <!-- Protect admin page -->
+    <script>
+        // Require authentication to access admin panel
+        if (!RouteGuard.protectAdminPage()) {
+            // Will redirect to sign-in if not authenticated
+        }
+    </script>
+
+    <!-- Authentication & Admin Management -->
+    <script>
+        let authModal;
+        let currentUser = null;
+
+        // --- Admin Page Protection ---
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Initialize Bootstrap modal
+            authModal = new bootstrap.Modal(document.getElementById('authModal'));
+
+            // Check if user is authenticated and is an admin
+            const isAuthenticated = await SupabaseAuth.isAuthenticated();
+
+            if (!isAuthenticated) {
+                // Not logged in at all - redirect to homepage
+                alert('Access denied. This page is for administrators only.');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            const isAdmin = await SupabaseAuth.isAdmin();
+
+            if (!isAdmin) {
+                // Logged in but not an admin - redirect to homepage
+                alert('Access denied. This page is for administrators only.');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            // User is authenticated and is an admin - proceed
+            currentUser = await SupabaseAuth.getCurrentUser();
+            document.getElementById('signupTabLi').style.display = 'block'; // Ensure signup tab is visible for admin
+            initAdminPanel();
+
+            // Setup form handlers
+            setupAuthForms();
+        });
+
+        // Setup authentication forms
+        function setupAuthForms() {
+            // Login form only (single admin mode)
+            document.getElementById('loginForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const email = document.getElementById('loginEmail').value;
+                const password = document.getElementById('loginPassword').value;
+                const errorDiv = document.getElementById('loginError');
+
+                try {
+                    await SupabaseAuth.signIn(email, password);
+
+                    // Check if user is admin
+                    const isAdmin = await SupabaseAuth.isAdmin();
+                    if (!isAdmin) {
+                        errorDiv.textContent = 'Access denied. You are not an admin.';
+                        errorDiv.classList.remove('d-none');
+                        await SupabaseAuth.signOut();
+                        return;
+                    }
+
+                    // Success
+                    currentUser = await SupabaseAuth.getCurrentUser();
+                    authModal.hide();
+                    initAdminPanel();
+                } catch (error) {
+                    errorDiv.textContent = error.message;
+                    errorDiv.classList.remove('d-none');
+                }
+            });
+        }
+
+        // Logout handler
+        async function handleLogout() {
+            if (confirm('Are you sure you want to logout?')) {
+                await SupabaseAuth.signOut();
+                location.reload();
+            }
+        }
+
+        // Show add admin form
+        function showAddAdminForm() {
+            document.getElementById('signup-tab').click();
+            authModal.show();
+        }
+
+        // Load admins list
+        async function loadAdmins() {
+            const admins = await SupabaseDB.getAdmins();
+            const tbody = document.getElementById('adminsTableBody');
+
+            tbody.innerHTML = admins.map(admin => `
+                <tr>
+                    <td>${admin.email}</td>
+                    <td>${new Date(admin.created_at).toLocaleDateString()}</td>
+                    <td>${admin.created_by || 'System'}</td>
+                    <td>
+                        <button class="btn btn-sm btn-danger" onclick="deleteAdmin('${admin.id}', '${admin.email}')" 
+                                ${admin.id === currentUser?.id ? 'disabled' : ''}>
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Delete admin
+        async function deleteAdmin(id, email) {
+            if (confirm(`Delete admin: ${email}?`)) {
+                try {
+                    await SupabaseDB.deleteAdmin(id);
+                    // Also delete from auth (requires service role - handle via RLS or backend)
+                    alert('Admin deleted successfully');
+                    loadAdmins();
+                } catch (error) {
+                    alert('Error deleting admin: ' + error.message);
+                }
+            }
+        }
+
+        // Initialize admin panel
+        async function initAdminPanel() {
+            // Load all data
+            await Promise.all([
+                loadDashboard(),
+                loadProducts(),
+                loadOrders(),
+                loadHomeSettings()
+            ]);
+
+            // Initialize inventory alerts
+            if (typeof InventoryAlerts !== 'undefined') {
+                await InventoryAlerts.displayAlerts('inventoryAlerts');
+            }
+
+            // Setup real-time listeners
+            SupabaseDB.subscribeToProducts((payload) => {
+                console.log('Product changed:', payload);
+                if (document.getElementById('products').classList.contains('active')) {
+                    loadProducts();
+                }
+                if (document.getElementById('dashboard').classList.contains('active')) {
+                    loadDashboard();
+                }
+            });
+
+            SupabaseDB.subscribeToOrders((payload) => {
+                console.log('Order changed:', payload);
+                if (document.getElementById('orders').classList.contains('active')) {
+                    loadOrders();
+                }
+                if (document.getElementById('dashboard').classList.contains('active')) {
+                    loadDashboard();
+                }
+            });
+        }
+
+        // Load dashboard with Supabase data
+        async function loadDashboard() {
+            const products = await SupabaseDB.getProducts();
+            const orders = await SupabaseDB.getOrders();
+
+            const revenue = orders.reduce((sum, o) => sum + parseFloat(o.total || 0), 0);
+            const lowStock = products.filter(p => p.stock < 10 && p.stock > 0).length;
+
+            document.getElementById('statRevenue').innerText = `KES ${revenue.toFixed(2)}`;
+            document.getElementById('statOrders').innerText = orders.length;
+            document.getElementById('statLowStock').innerText = lowStock;
+            document.getElementById('statProducts').innerText = products.filter(p => p.visibility).length;
+        }
+
+        // Load products from Supabase
+        async function loadProducts() {
+            const products = await SupabaseDB.getProducts();
+            const tbody = document.getElementById('productTableBody');
+
+            tbody.innerHTML = products.map(p => `
+                <tr>
+                    <td><img src="${p.image}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;"></td>
+                    <td>${p.name}</td>
+                    <td>KES ${p.price}</td>
+                    <td>${p.stock}</td>
+                    <td>${p.sold || 0}</td>
+                    <td><span class="badge ${p.visibility ? 'bg-success' : 'bg-secondary'}">${p.visibility ? 'Active' : 'Hidden'}</span></td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="editProduct(${p.id})"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteProduct(${p.id})"><i class="fas fa-trash"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Load orders from Supabase
+        async function loadOrders() {
+            const orders = await SupabaseDB.getOrders();
+            const tbody = document.getElementById('orderTableBody');
+
+            tbody.innerHTML = orders.map(o => `
+                <tr>
+                    <td>#${o.id}</td>
+                    <td>${o.customer_name}</td>
+                    <td>${o.customer_email || 'N/A'}</td>
+                    <td>KES ${o.total}</td>
+                    <td><span class="badge ${o.status === 'completed' ? 'bg-success' : 'bg-warning'}">${o.status}</span></td>
+                    <td>${new Date(o.created_at).toLocaleDateString()}</td>
+                    <td>
+                        <button class="btn btn-sm btn-info" onclick="viewOrder(${o.id})"><i class="fas fa-eye"></i></button>
+                        <select class="form-select form-select-sm d-inline-block w-auto" onchange="updateOrderStatus(${o.id}, this.value)">
+                            <option value="pending" ${o.status === 'pending' ? 'selected' : ''}>Pending</option>
+                            <option value="processing" ${o.status === 'processing' ? 'selected' : ''}>Processing</option>
+                            <option value="completed" ${o.status === 'completed' ? 'selected' : ''}>Completed</option>
+                            <option value="cancelled" ${o.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
+                        </select>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Update order status
+        async function updateOrderStatus(id, status) {
+            try {
+                await SupabaseDB.updateOrderStatus(id, status);
+                alert('Order status updated');
+                await loadOrders();
+            } catch (error) {
+                alert('Error updating order: ' + error.message);
+            }
+        }
+
+        // Delete product
+        async function deleteProduct(id) {
+            if (confirm('Delete this product?')) {
+                try {
+                    await SupabaseDB.deleteProduct(id);
+                    alert('Product deleted');
+                    await loadProducts();
+                } catch (error) {
+                    alert('Error deleting product: ' + error.message);
+                }
+            }
+        }
+    </script>
+    <script>
+        // --- Navigation ---
+        function showSection(id, btn) {
+            document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            document.querySelectorAll('.sidebar a').forEach(el => el.classList.remove('active'));
+            btn.classList.add('active');
+
+            // Load data for the section
+            if (id === 'admins') loadAdmins();
+            if (id === 'products') loadProducts();
+            if (id === 'orders') loadOrders();
+            if (id === 'dashboard') loadDashboard();
+        }
+
+        // --- Core UI Logic ---
+        function refreshUI() {
+            renderProducts();
+            renderOrders();
+            renderInventory();
+            renderHomeEditor();
+            loadSettings();
+        }
+
+        function renderDashboard() {
+            const stats = Store.getStats();
+            document.getElementById('statRevenue').innerText = `KES ${stats.revenue}`;
+            document.getElementById('statOrders').innerText = stats.orders;
+            document.getElementById('statLowStock').innerText = stats.lowStock;
+            document.getElementById('statProducts').innerText = stats.products;
+
+            // Simple Chart
+            const ctx = document.getElementById('salesChart').getContext('2d');
+            // Mock Data mostly since we don't have historical dates stored properly in this simple version
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    datasets: [{
+                        label: 'Revenue (KES)',
+                        data: [1200, 1900, 300, 500, 2000, 3000, stats.revenue], // Last one is current
+                        borderColor: '#0d6efd',
+                        tension: 0.1
+                    }]
+                }
+            });
+        }
+
+        function renderProducts() {
+            const tbody = document.getElementById('productTableBody');
+            tbody.innerHTML = Store.getProducts().map(p => `
+                <tr>
+                    <td><img src="${p.image}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;"></td>
+                    <td>
+                        <div class="fw-bold">${p.name}</div>
+                        <div class="small text-muted">${p.subcategory || ''}</div>
+                    </td>
+                    <td>KES ${p.price}</td>
+                    <td>${p.stock}</td>
+                    <td>${p.sold || 0}</td>
+                    <td>
+                        ${p.visibility === false ? '<span class="badge bg-secondary">Hidden</span>' : '<span class="badge bg-success">Visible</span>'}
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="editProduct(${p.id})"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteProduct(${p.id})"><i class="fas fa-trash"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function renderOrders() {
+            const tbody = document.getElementById('orderTableBody');
+            tbody.innerHTML = Store.getOrders().map(o => `
+                <tr>
+                    <td>#${o.id}</td>
+                    <td>${o.customer}</td>
+                    <td>${new Date(o.date).toLocaleDateString()}</td>
+                    <td>KES ${o.total}</td>
+                    <td>
+                        <select onchange="updateOrderStatus(${o.id}, this.value)" class="form-select form-select-sm">
+                            <option ${o.status == 'Pending' ? 'selected' : ''}>Pending</option>
+                            <option ${o.status == 'Shipped' ? 'selected' : ''}>Shipped</option>
+                            <option ${o.status == 'Delivered' ? 'selected' : ''}>Delivered</option>
+                            <option ${o.status == 'Cancelled' ? 'selected' : ''}>Cancelled</option>
+                        </select>
+                    </td>
+                    <td><button class="btn btn-sm btn-info text-white">View</button></td>
+                </tr>
+            `).join('');
+        }
+
+        function renderInventory() {
+            const tbody = document.getElementById('inventoryTableBody');
+            tbody.innerHTML = Store.getProducts().map(p => {
+                const status = p.stock == 0 ? '<span class="badge badge-stock-out">Out of Stock</span>' :
+                    (p.stock < 10 ? '<span class="badge badge-stock-low">Low Stock</span>' : '<span class="badge bg-success">In Stock</span>');
+                return `
+                    <tr>
+                        <td>${p.name}</td>
+                        <td>
+                            <input type="number" style="width:80px" value="${p.stock}" onchange="updateStock(${p.id}, this.value)">
+                        </td>
+                        <td>${p.sold || 0}</td>
+                        <td>${status}</td>
+                        <td><button class="btn btn-sm btn-secondary" onclick="updateStock(${p.id}, 999)">Restock</button></td>
+                    </tr>
+                 `;
+            }).join('');
+        }
+
+        function updateStock(id, qty) {
+            Store.updateProduct(id, { stock: parseInt(qty) });
+            refreshUI();
+        }
+
+        function updateOrderStatus(id, status) {
+            Store.updateOrderStatus(id, status);
+            alert(`Order #${id} marked as ${status}`);
+        }
+
+        function simulateOrder() {
+            Store.placeOrder({
+                customer: "Test Customer",
+                email: "test@test.com",
+                total: (Math.random() * 5000).toFixed(2),
+                items: [{ name: "Simulated Item", qty: 1, price: 100 }]
+            });
+            refreshUI();
+            alert("New Order Simulated!");
+        }
+
+        // --- Settings ---
+        function loadSettings() {
+            const s = Store.getSettings();
+            if (!s) return;
+            document.getElementById('setSiteName').value = s.siteName || '';
+            document.getElementById('setCurrency').value = s.currency || 'KES';
+            document.getElementById('setTax').value = s.taxRate || 16;
+            document.getElementById('setMpesaKey').value = s.mpesaKey || '';
+            document.getElementById('setMpesaSecret').value = s.mpesaSecret || '';
+        }
+
+        function saveSettings() {
+            Store.saveSettings({
+                siteName: document.getElementById('setSiteName').value,
+                currency: document.getElementById('setCurrency').value,
+                taxRate: document.getElementById('setTax').value,
+                mpesaKey: document.getElementById('setMpesaKey').value,
+                mpesaSecret: document.getElementById('setMpesaSecret').value
+            });
+            alert("Settings Saved!");
+        }
+
+        // --- Homepage Editor ---
+        function renderHomeEditor() {
+            const products = Store.getProducts();
+            const settings = Store.getHomeSettings();
+
+            // Helper to create checkbox list
+            const createList = (containerId, selectedIds) => {
+                const container = document.getElementById(containerId);
+                container.innerHTML = products.map(p => `
+                    <div class="col-md-3 mb-2">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="${p.id}" id="${containerId}-${p.id}" 
+                                ${selectedIds.includes(p.id.toString()) ? 'checked' : ''}>
+                            <label class="form-check-label" for="${containerId}-${p.id}">
+                                ${p.name}
+                            </label>
+                        </div>
+                    </div>
+                `).join('');
+            };
+
+            createList('hotProductList', settings.hotWeek.map(String));
+            createList('newProductList', settings.newArrivals.map(String));
+            createList('soldProductList', settings.mostSold.map(String));
+            createList('exploreProductList', settings.exploreProducts.map(String));
+
+            // Don't Miss
+            const dm = settings.dontMiss;
+            document.getElementById('dmTitle').value = dm.title || '';
+            document.getElementById('dmSubtitle').value = dm.subtitle || '';
+            document.getElementById('dmImage').value = dm.bgImage || '';
+            document.getElementById('dmLink').value = dm.link || '';
+        }
+
+        function saveHomeSettings() {
+            // Helper to get selected IDs
+            const getSelected = (containerId) => {
+                return Array.from(document.querySelectorAll(`#${containerId} input:checked`)).map(cb => cb.value);
+            };
+
+            const settings = {
+                hotWeek: getSelected('hotProductList'),
+                newArrivals: getSelected('newProductList'),
+                mostSold: getSelected('soldProductList'),
+                exploreProducts: getSelected('exploreProductList'),
+                dontMiss: {
+                    title: document.getElementById('dmTitle').value,
+                    subtitle: document.getElementById('dmSubtitle').value,
+                    bgImage: document.getElementById('dmImage').value,
+                    link: document.getElementById('dmLink').value
+                }
+            };
+
+            Store.saveHomeSettings(settings);
+            alert("Homepage Settings Saved!");
+        }
+
+        // --- Helper: Dynamic Image Fields ---
+        function addImageField() {
+            const container = document.getElementById('extraImagesContainer');
+            const div = document.createElement('div');
+            div.className = 'input-group mb-2';
+            div.innerHTML = `
+                <input type="file" class="form-control gallery-file-input">
+                <button type="button" class="btn btn-outline-danger" onclick="removeImageField(this)"><i class="fas fa-times"></i></button>
+            `;
+            container.appendChild(div);
+        }
+
+        function removeImageField(btn) {
+            btn.parentElement.remove();
+        }
+
+        // --- Modal & Product logic (Simplified from before) ---
+        let pModal;
+        document.addEventListener('DOMContentLoaded', () => {
+            pModal = new bootstrap.Modal(document.getElementById('productModal'));
+            refreshUI();
+        });
+
+        function openProductModal() { pModal.show(); }
+        async function saveProduct() {
+            const editId = document.getElementById('editId').value;
+
+            try {
+                // Gather Basic Fields
+                const name = document.getElementById('pName').value;
+                const price = parseFloat(document.getElementById('pPrice').value);
+                const stock = parseInt(document.getElementById('pStock').value);
+                const category = document.getElementById('pCategory').value;
+                const description = document.getElementById('pDescription').value;
+                const subcategory = document.getElementById('pSubcategory').value;
+                const discount = parseFloat(document.getElementById('pDiscount').value) || 0;
+                const visibility = document.getElementById('pVisibility').checked;
+
+                // Variants
+                const sizes = document.getElementById('pSizes').value;
+                const colors = document.getElementById('pColors').value;
+                const models = document.getElementById('pModels').value;
+
+                // Handle Images
+                const file = document.getElementById('pImageFile').files[0];
+
+                // Gather all dynamic gallery inputs
+                const galleryInputs = document.querySelectorAll('.gallery-file-input');
+
+                let image = "assets/images/product/electric/product-01.png";
+
+                if (file) {
+                    image = await Store.fileToBase64(file);
+                }
+
+                let gallery = [];
+                for (let i = 0; i < galleryInputs.length; i++) {
+                    if (galleryInputs[i].files[0]) {
+                        gallery.push(await Store.fileToBase64(galleryInputs[i].files[0]));
+                    }
+                }
+
+                // Calculate old_price if discount exists
+                const old_price = discount > 0 ? price / (1 - discount / 100) : null;
+
+                // Get homepage section assignments
+                const hot_week = document.getElementById('addHot').checked;
+                const new_arrivals = document.getElementById('addNew').checked;
+                const explore_products = document.getElementById('addExplore').checked;
+                const most_sold = document.getElementById('addSold').checked;
+
+                const productData = {
+                    name,
+                    price,
+                    old_price,
+                    stock,
+                    category,
+                    description,
+                    subcategory,
+                    visibility,
+                    hot_week,
+                    new_arrivals,
+                    explore_products,
+                    most_sold,
+                    image,
+                    gallery: gallery.length > 0 ? gallery : null,
+                    sizes: sizes || null,
+                    colors: colors || null,
+                    models: models || null
+                };
+
+                let savedProduct;
+                if (editId) {
+                    // Update existing product in Supabase
+                    savedProduct = await SupabaseDB.updateProduct(parseInt(editId), productData);
+                    showNotification('Product updated successfully!', 'success');
+                } else {
+                    // Create new product in Supabase
+                    savedProduct = await SupabaseDB.addProduct(productData);
+                    showNotification('Product added successfully!', 'success');
+                }
+
+                pModal.hide();
+                // Reset Form and Dynamic Fields
+                document.getElementById('productForm').reset();
+                document.getElementById('extraImagesContainer').innerHTML = '';
+                document.getElementById('editId').value = '';
+                document.getElementById('modalTitle').innerText = 'Add Product';
+
+                // Reload products list
+                loadProducts();
+
+            } catch (error) {
+                console.error('Error saving product:', error);
+                showNotification('Error saving product: ' + error.message, 'error');
+            }
+        }
+        function editProduct(id) {
+            const product = Store.getProducts().find(p => p.id == id);
+            if (!product) return;
+
+            // Reset form for fresh edit state
+            document.getElementById('productForm').reset();
+            document.getElementById('extraImagesContainer').innerHTML = '';
+
+            // Populate form
+            document.getElementById('editId').value = product.id;
+            document.getElementById('pName').value = product.name;
+            document.getElementById('pPrice').value = product.price;
+            document.getElementById('pStock').value = product.stock;
+            document.getElementById('pCategory').value = product.category || 'Electronics';
+
+            // New Fields
+            document.getElementById('pDescription').value = product.description || '';
+            document.getElementById('pSubcategory').value = product.subcategory || '';
+            document.getElementById('pDiscount').value = product.discount || '';
+            document.getElementById('pVisibility').checked = product.visibility !== false; // Default true
+            document.getElementById('pSizes').value = product.sizes || '';
+            document.getElementById('pColors').value = product.colors || '';
+            document.getElementById('pModels').value = product.models || '';
+
+            // We cannot populate file inputs with existing files due to browser security.
+            // But we can perhaps show a list of *existing* images if we wanted to allow deleting them individually.
+            // For this iteration, we just allow adding *new* images.
+            // Future improvement: Show existing gallery images with 'delete' buttons.
+
+            // Info
+            const soldText = product.sold !== undefined ? product.sold : 0;
+            const lastUpdateText = product.lastUpdated ? new Date(product.lastUpdated).toLocaleString() : 'N/A';
+            document.getElementById('editInfo').innerHTML = `<strong>Total Sold:</strong> ${soldText} | <strong>Last Updated:</strong> ${lastUpdateText}`;
+
+            // Populate Checkboxes
+            const homeSettings = Store.getHomeSettings();
+            document.getElementById('addHot').checked = homeSettings.hotWeek.map(String).includes(product.id.toString());
+            document.getElementById('addNew').checked = homeSettings.newArrivals.map(String).includes(product.id.toString());
+            document.getElementById('addExplore').checked = homeSettings.exploreProducts.map(String).includes(product.id.toString());
+            document.getElementById('addSold').checked = homeSettings.mostSold.map(String).includes(product.id.toString());
+
+            document.getElementById('modalTitle').innerText = 'Edit Product';
+            openProductModal();
+        }
+
+        // Notification helper
+        function showNotification(message, type = 'info') {
+            const alertClass = type === 'success' ? 'alert-success' : type === 'error' ? 'alert-danger' : 'alert-info';
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert ${alertClass} alert-dismissible fade show position-fixed top-0 end-0 m-3`;
+            alertDiv.style.zIndex = '9999';
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(alertDiv);
+
+            setTimeout(() => {
+                alertDiv.remove();
+            }, 3000);
+        }
+
+        // Real-time product updates
+        let productSubscription = null;
+
+        function setupRealtimeListeners() {
+            // Subscribe to product changes
+            productSubscription = SupabaseDB.subscribeToProducts((payload) => {
+                console.log('Product change detected:', payload);
+
+                if (payload.eventType === 'INSERT') {
+                    showNotification('New product added!', 'info');
+                } else if (payload.eventType === 'UPDATE') {
+                    showNotification('Product updated!', 'info');
+                } else if (payload.eventType === 'DELETE') {
+                    showNotification('Product deleted!', 'info');
+                }
+
+                // Reload products list
+                loadProducts();
+            });
+        }
+
+        // Initialize real-time listeners when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            setupRealtimeListeners();
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (productSubscription) {
+                SupabaseDB.unsubscribe(productSubscription);
+            }
+        });
+
+    </script>
+
+    <!-- Phase 1-4 Feature Scripts -->
+    <script src="assets/js/ui-helpers.js"></script>
+    <script src="assets/js/inventory-alerts.js"></script>
+    <script src="assets/js/image-upload.js"></script>
+    <script src="assets/js/reviews.js"></script>
+    <script src="assets/js/coupons.js"></script>
+
+</body>
+
+</html>

@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Track Your Order | Digiflow</title>
+    <link rel="stylesheet" href="assets/css/vendor/bootstrap.min.css">
+    <link rel="stylesheet" href="assets/css/vendor/font-awesome.css">
+    <link rel="stylesheet" href="assets/css/style.min.css">
+    <style>
+        .timeline {
+            position: relative;
+            padding: 20px 0;
+        }
+
+        .timeline-item {
+            position: relative;
+            padding-left: 60px;
+            padding-bottom: 40px;
+        }
+
+        .timeline-item:last-child {
+            padding-bottom: 0;
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: 20px;
+            top: 0;
+            bottom: -40px;
+            width: 2px;
+            background: #e0e0e0;
+        }
+
+        .timeline-item:last-child::before {
+            display: none;
+        }
+
+        .timeline-icon {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f8f9fa;
+            border: 2px solid #e0e0e0;
+        }
+
+        .timeline-item.active .timeline-icon {
+            background: #28a745;
+            border-color: #28a745;
+            color: white;
+        }
+
+        .timeline-item.completed .timeline-icon {
+            background: #007bff;
+            border-color: #007bff;
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="card shadow-sm">
+                    <div class="card-body p-5">
+                        <h2 class="text-center mb-4">Track Your Order</h2>
+
+                        <!-- Search Form -->
+                        <div id="searchForm">
+                            <div class="mb-3">
+                                <label class="form-label">Order ID</label>
+                                <input type="number" class="form-control" id="orderId"
+                                    placeholder="Enter your order ID">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Email (Optional)</label>
+                                <input type="email" class="form-control" id="orderEmail" placeholder="Enter your email">
+                            </div>
+                            <button class="btn btn-primary w-100" onclick="trackOrder()">
+                                <i class="fas fa-search"></i> Track Order
+                            </button>
+                        </div>
+
+                        <!-- Order Details -->
+                        <div id="orderDetails" style="display: none;">
+                            <div class="alert alert-info">
+                                <strong>Order #<span id="displayOrderId"></span></strong>
+                                <button class="btn btn-sm btn-link float-end" onclick="resetSearch()">Search
+                                    Another</button>
+                            </div>
+
+                            <div class="row mb-4">
+                                <div class="col-md-6">
+                                    <p class="mb-1"><strong>Customer:</strong> <span id="customerName"></span></p>
+                                    <p class="mb-1"><strong>Email:</strong> <span id="customerEmail"></span></p>
+                                    <p class="mb-1"><strong>Phone:</strong> <span id="customerPhone"></span></p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p class="mb-1"><strong>Order Date:</strong> <span id="orderDate"></span></p>
+                                    <p class="mb-1"><strong>Payment Method:</strong> <span id="paymentMethod"></span>
+                                    </p>
+                                    <p class="mb-1"><strong>Total:</strong> <span id="orderTotal"></span></p>
+                                </div>
+                            </div>
+
+                            <h5 class="mb-3">Order Status</h5>
+                            <div class="timeline" id="orderTimeline">
+                                <!-- Timeline populated by JS -->
+                            </div>
+
+                            <h5 class="mb-3 mt-4">Order Items</h5>
+                            <div class="table-responsive">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Product</th>
+                                            <th>Quantity</th>
+                                            <th>Price</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="orderItems">
+                                        <!-- Items populated by JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Error Message -->
+                        <div id="errorMessage" class="alert alert-danger" style="display: none;"></div>
+                    </div>
+                </div>
+
+                <div class="text-center mt-4">
+                    <a href="index.html" class="btn btn-link">← Back to Home</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="assets/js/vendor/jquery.js"></script>
+    <script src="assets/js/vendor/bootstrap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="assets/js/supabase-client.js"></script>
+    <script src="assets/js/supabase-db.js"></script>
+    <script src="assets/js/ui-helpers.js"></script>
+    <script>
+        async function trackOrder() {
+            const orderId = document.getElementById('orderId').value;
+            const email = document.getElementById('orderEmail').value;
+            const errorDiv = document.getElementById('errorMessage');
+            const detailsDiv = document.getElementById('orderDetails');
+
+            errorDiv.style.display = 'none';
+
+            if (!orderId) {
+                errorDiv.textContent = 'Please enter an order ID';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            try {
+                UIHelpers.showLoading('Searching for your order...');
+
+                // Fetch order
+                const { data, error } = await supabaseClient
+                    .from('orders')
+                    .select('*')
+                    .eq('id', orderId)
+                    .single();
+
+                UIHelpers.hideLoading();
+
+                if (error || !data) {
+                    errorDiv.textContent = 'Order not found. Please check your order ID.';
+                    errorDiv.style.display = 'block';
+                    return;
+                }
+
+                // Verify email if provided
+                if (email && data.customer_email && data.customer_email.toLowerCase() !== email.toLowerCase()) {
+                    errorDiv.textContent = 'Email does not match order records.';
+                    errorDiv.style.display = 'block';
+                    return;
+                }
+
+                // Display order details
+                displayOrderDetails(data);
+            } catch (error) {
+                UIHelpers.hideLoading();
+                errorDiv.textContent = 'An error occurred. Please try again.';
+                errorDiv.style.display = 'block';
+                console.error('Error:', error);
+            }
+        }
+
+        function displayOrderDetails(order) {
+            document.getElementById('searchForm').style.display = 'none';
+            document.getElementById('orderDetails').style.display = 'block';
+
+            document.getElementById('displayOrderId').textContent = order.id;
+            document.getElementById('customerName').textContent = order.customer_name || 'N/A';
+            document.getElementById('customerEmail').textContent = order.customer_email || 'N/A';
+            document.getElementById('customerPhone').textContent = order.customer_phone || 'N/A';
+            document.getElementById('orderDate').textContent = new Date(order.created_at).toLocaleDateString();
+            document.getElementById('paymentMethod').textContent = order.payment_method || 'N/A';
+            document.getElementById('orderTotal').textContent = `KES ${parseFloat(order.total).toFixed(2)}`;
+
+            // Display timeline
+            displayTimeline(order.status, order.created_at);
+
+            // Display items
+            const itemsHTML = order.items.map(item => `
+                <tr>
+                    <td>${item.name}</td>
+                    <td>${item.qty}</td>
+                    <td>KES ${parseFloat(item.price).toFixed(2)}</td>
+                </tr>
+            `).join('');
+            document.getElementById('orderItems').innerHTML = itemsHTML;
+        }
+
+        function displayTimeline(currentStatus, createdAt) {
+            const statuses = [
+                { key: 'pending', label: 'Order Placed', icon: 'fa-shopping-cart' },
+                { key: 'processing', label: 'Processing', icon: 'fa-cog' },
+                { key: 'shipped', label: 'Shipped', icon: 'fa-truck' },
+                { key: 'completed', label: 'Delivered', icon: 'fa-check-circle' }
+            ];
+
+            const statusIndex = statuses.findIndex(s => s.key === currentStatus);
+
+            const timelineHTML = statuses.map((status, index) => {
+                const isCompleted = index < statusIndex;
+                const isActive = index === statusIndex;
+                const className = isCompleted ? 'completed' : (isActive ? 'active' : '');
+
+                return `
+                    <div class="timeline-item ${className}">
+                        <div class="timeline-icon">
+                            <i class="fas ${status.icon}"></i>
+                        </div>
+                        <div>
+                            <h6 class="mb-1">${status.label}</h6>
+                            ${isActive ? `<small class="text-muted">Current Status</small>` : ''}
+                            ${isCompleted ? `<small class="text-success">✓ Completed</small>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('orderTimeline').innerHTML = timelineHTML;
+        }
+
+        function resetSearch() {
+            document.getElementById('searchForm').style.display = 'block';
+            document.getElementById('orderDetails').style.display = 'none';
+            document.getElementById('orderId').value = '';
+            document.getElementById('orderEmail').value = '';
+        }
+
+        // Check URL parameters
+        window.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            const orderId = params.get('id') || params.get('order');
+
+            if (orderId) {
+                document.getElementById('orderId').value = orderId;
+                trackOrder();
+            }
+        });
+    </script>
+</body>
+
+</html>
