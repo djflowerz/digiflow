@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS orders (
   customer_phone TEXT,
   total DECIMAL(10,2) NOT NULL,
   items JSONB NOT NULL,
+  shipping_address JSONB DEFAULT '{}'::jsonb,
   payment_method TEXT DEFAULT 'Cash on Delivery',
   status TEXT DEFAULT 'pending',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

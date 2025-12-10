@@ -146,6 +146,14 @@ const PaymentModule = {
                 customer_name: customerName,
                 customer_email: customerEmail,
                 customer_phone: customerPhone,
+                shipping_address: {
+                    address1: document.getElementById('address1')?.value || '',
+                    address2: document.getElementById('address2')?.value || '',
+                    city: document.getElementById('city')?.value || '',
+                    country: document.getElementById('country')?.value || '',
+                    postcode: document.getElementById('postcode')?.value || '',
+                    notes: document.getElementById('notes')?.value || ''
+                },
                 total: parseFloat(cartTotal),
                 items: cart.map(i => ({
                     product_id: i.id,
@@ -336,6 +344,14 @@ const PaymentModule = {
                 customer_name: customerName,
                 customer_email: customerEmail,
                 customer_phone: customerPhone,
+                shipping_address: {
+                    address1: document.getElementById('address1')?.value || '',
+                    address2: document.getElementById('address2')?.value || '',
+                    city: document.getElementById('city')?.value || '',
+                    country: document.getElementById('country')?.value || '',
+                    postcode: document.getElementById('postcode')?.value || '',
+                    notes: document.getElementById('notes')?.value || ''
+                },
                 total: Store.getCartTotal(),
                 items: cart,
                 payment_method: 'Cash on Delivery',
