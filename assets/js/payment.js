@@ -26,8 +26,7 @@ const PaymentModule = {
         const checkoutForm = document.getElementById('checkoutForm');
         if (!checkoutForm) return;
 
-        // Add payment method selection
-        this.injectPaymentUI();
+        // The payment UI is already in checkout.html, no need to inject
     },
 
     injectPaymentUI() {
@@ -103,18 +102,13 @@ const PaymentModule = {
             return;
         }
 
-        const paymentMethod = document.querySelector('input[name="paymentMethod"]:checked').value;
-        const statusDiv = document.getElementById('paymentStatus');
-
-        if (paymentMethod === 'mpesa') {
-            await this.processMpesaPayment();
-        } else {
-            this.processCashPayment();
-        }
+        // The checkout.html has a radio button with name="payment" for M-Pesa Express
+        // Since it's the only payment method and is checked by default, we'll always process M-Pesa
+        await this.processMpesaPayment();
     },
 
     async processMpesaPayment() {
-        const phoneNumber = document.getElementById('mpesaPhone').value;
+        const phoneNumber = document.getElementById('phone').value;
         const statusDiv = document.getElementById('paymentStatus');
 
         // Validate phone number
@@ -126,8 +120,10 @@ const PaymentModule = {
         // Get cart and customer details
         const cart = Store.getCart();
         const cartTotal = Store.getCartTotal();
-        const customerName = document.getElementById('customerName')?.value || 'Guest';
-        const customerEmail = document.getElementById('customerEmail')?.value || '';
+        const firstName = document.getElementById('fname')?.value || '';
+        const lastName = document.getElementById('lname')?.value || '';
+        const customerName = `${firstName} ${lastName}`.trim() || 'Guest';
+        const customerEmail = document.getElementById('email')?.value || '';
         const customerPhone = phoneNumber;
 
         // Show loading state
@@ -176,6 +172,12 @@ const PaymentModule = {
             console.log('Order created:', orderId);
 
             // Call Vercel Function for Lipana STK Push
+            console.log('Calling payment API with:', {
+                amount: cartTotal,
+                phone: customerPhone,
+                orderId: orderId
+            });
+
             const response = await fetch('/api/mpesa/initiate', {
                 method: 'POST',
                 headers: {
@@ -189,28 +191,41 @@ const PaymentModule = {
             });
 
             const result = await response.json();
+            console.log('Payment API response:', result);
 
             if (!response.ok) {
-                throw new Error(result.error || 'Payment initiation failed');
+                console.error('Payment API error:', result);
+                throw new Error(result.error || result.details || 'Payment initiation failed');
             }
 
             // If successful
-            console.log("Lipana Payment Initiated:", result);
+            console.log("Lipana Payment Initiated Successfully:", result);
 
             statusDiv.innerHTML = `
-                <div class="alert alert-info">
+                <div class="alert alert-success">
+                    <i class="fas fa-check-circle me-2"></i>
+                    <strong>STK Push Sent!</strong><br>
+                    Please check your phone (${customerPhone}) to complete payment.<br>
+                    <small>Enter your M-Pesa PIN when prompted.</small>
+                </div>
+                <div class="alert alert-info mt-2">
                     <div class="spinner-border spinner-border-sm me-2" role="status"></div>
-                    STK Push Sent! Please check your phone to complete payment.
+                    Waiting for payment confirmation...
                 </div>
             `;
 
             // Start polling or waiting for webhook confirmation via Supabase subscription
             // Here we use the existing polling mock or you can rely on the webhook updating the status
-            this.pollPaymentStatus(result.transaction_id || orderId, orderId);
+            this.pollPaymentStatus(result.data?.transaction_id || result.transaction_id || orderId, orderId);
 
         } catch (error) {
             console.error('Payment initialization error:', error);
-            this.showError('Could not initialize payment: ' + (error.message || 'Unknown error'));
+            this.showError(`
+                <strong>Payment Failed</strong><br>
+                ${error.message}<br>
+                <small>Please check your phone number and try again.</small><br>
+                <small class="text-muted">Phone: ${customerPhone}</small>
+            `);
         }
     },
 
@@ -330,9 +345,11 @@ const PaymentModule = {
         try {
             // Get cart and customer details
             const cart = Store.getCart();
-            const customerName = document.getElementById('customerName')?.value || 'Guest';
-            const customerEmail = document.getElementById('customerEmail')?.value || '';
-            const customerPhone = document.getElementById('customerPhone')?.value || '';
+            const firstName = document.getElementById('fname')?.value || '';
+            const lastName = document.getElementById('lname')?.value || '';
+            const customerName = `${firstName} ${lastName}`.trim() || 'Guest';
+            const customerEmail = document.getElementById('email')?.value || '';
+            const customerPhone = document.getElementById('phone')?.value || '';
 
             // Create order in Supabase
             const order = await SupabaseDB.addOrder({
