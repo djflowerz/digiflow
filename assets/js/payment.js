@@ -137,8 +137,13 @@ const PaymentModule = {
         `;
 
         try {
+            // Get current user ID for the customer field
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            const userId = user?.id || 'guest';
+
             // Create order object
             const orderData = {
+                customer: userId, // Required field for orders table
                 customer_name: customerName,
                 customer_email: customerEmail,
                 customer_phone: customerPhone,
