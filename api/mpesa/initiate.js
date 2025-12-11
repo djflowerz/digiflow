@@ -44,15 +44,18 @@ export default async function handler(req, res) {
 
         console.log('Lipana Secret Key present:', process.env.LIPANA_SECRET_KEY ? 'Yes' : 'No');
 
-        // Import and initialize Lipana SDK
-        const Lipana = require('@lipana/sdk');
+        // Import Lipana SDK - handle both CommonJS and ES module exports
+        const LipanaModule = require('@lipana/sdk');
+        const Lipana = LipanaModule.default || LipanaModule;
+
+        console.log('Lipana SDK imported, type:', typeof Lipana);
 
         const lipana = new Lipana({
             apiKey: process.env.LIPANA_SECRET_KEY,
             environment: 'production'
         });
 
-        console.log('Lipana SDK initialized');
+        console.log('Lipana SDK initialized successfully');
 
         // Initiate STK Push
         const callbackUrl = `https://digiflowstore-git-main-digiflow.vercel.app/api/webhooks/mpesa?orderId=${orderId}`;
