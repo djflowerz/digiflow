@@ -1,5 +1,5 @@
-// Lipana M-Pesa STK Push API Endpoint
-// This runs on Vercel serverless function
+// Daraja M-Pesa STK Push API Endpoint
+// Official Safaricom M-Pesa API integration
 
 export default async function handler(req, res) {
     // CORS Headers
@@ -36,67 +36,91 @@ export default async function handler(req, res) {
             return res.status(400).json({ error: 'Invalid phone number format. Use 254XXXXXXXXX' });
         }
 
-        // Check if Lipana secret key is configured
-        if (!process.env.LIPANA_SECRET_KEY) {
-            console.error('LIPANA_SECRET_KEY not configured');
+        // Check if Daraja credentials are configured
+        if (!process.env.MPESA_CONSUMER_KEY || !process.env.MPESA_CONSUMER_SECRET) {
+            console.error('Daraja credentials not configured');
             return res.status(500).json({ error: 'Payment gateway not configured' });
         }
 
-        console.log('Lipana Secret Key present:', process.env.LIPANA_SECRET_KEY ? 'Yes' : 'No');
+        // Step 1: Get OAuth token from Daraja
+        const auth = Buffer.from(`${process.env.MPESA_CONSUMER_KEY}:${process.env.MPESA_CONSUMER_SECRET}`).toString('base64');
 
-        if (!process.env.LIPANA_SECRET_KEY) {
-            console.error('LIPANA_SECRET_KEY not configured');
-            return res.status(500).json({ error: 'Payment gateway not configured' });
+        const tokenResponse = await fetch('https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Basic ${auth}`
+            }
+        });
+
+        const tokenData = await tokenResponse.json();
+
+        if (!tokenResponse.ok || !tokenData.access_token) {
+            console.error('Failed to get access token:', tokenData);
+            throw new Error('Failed to authenticate with M-Pesa');
         }
 
-        // Use direct HTTP call to Lipana API instead of SDK
-        const lipanaApiUrl = 'https://api.lipana.dev/v1/stk/push';
+        const accessToken = tokenData.access_token;
+        console.log('Access token obtained');
 
+        // Step 2: Generate password for STK push
+        const shortCode = process.env.MPESA_SHORTCODE || '174379';
+        const passkey = process.env.MPESA_PASSKEY || 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919';
+        const timestamp = new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
+        const password = Buffer.from(`${shortCode}${passkey}${timestamp}`).toString('base64');
+
+        // Step 3: Initiate STK Push
         const callbackUrl = `https://digiflowstore-git-main-digiflow.vercel.app/api/webhooks/mpesa?orderId=${orderId}`;
 
-        console.log('Initiating STK push with:', {
-            amount,
-            phone,
-            callbackUrl,
-            accountReference: orderId || 'Digiflow'
-        });
+        const stkPushPayload = {
+            BusinessShortCode: shortCode,
+            Password: password,
+            Timestamp: timestamp,
+            TransactionType: 'CustomerPayBillOnline',
+            Amount: Math.ceil(parseFloat(amount)),
+            PartyA: phone,
+            PartyB: shortCode,
+            PhoneNumber: phone,
+            CallBackURL: callbackUrl,
+            AccountReference: orderId || 'Digiflow',
+            TransactionDesc: `Payment for Order ${orderId}`
+        };
 
-        // Make direct HTTP request to Lipana API
-        const lipanaResponse = await fetch(lipanaApiUrl, {
+        console.log('Initiating STK push:', { phone, amount, orderId });
+
+        const stkResponse = await fetch('https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${process.env.LIPANA_SECRET_KEY}`
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                amount: parseFloat(amount),
-                phone: phone,
-                callback_url: callbackUrl,
-                account_reference: orderId || 'Digiflow',
-                transaction_desc: `Payment for Order ${orderId}`
-            })
+            body: JSON.stringify(stkPushPayload)
         });
 
-        const lipanaData = await lipanaResponse.json();
+        const stkData = await stkResponse.json();
 
-        console.log('Lipana API response status:', lipanaResponse.status);
-        console.log('Lipana API response:', lipanaData);
+        console.log('STK Push response:', stkData);
 
-        if (!lipanaResponse.ok) {
-            throw new Error(lipanaData.message || lipanaData.error || 'Lipana API request failed');
+        if (!stkResponse.ok || stkData.ResponseCode !== '0') {
+            console.error('STK Push failed:', stkData);
+            throw new Error(stkData.ResponseDescription || stkData.errorMessage || 'STK Push failed');
         }
 
         return res.status(200).json({
             success: true,
             message: 'STK push initiated successfully',
-            data: lipanaData
+            data: {
+                MerchantRequestID: stkData.MerchantRequestID,
+                CheckoutRequestID: stkData.CheckoutRequestID,
+                ResponseCode: stkData.ResponseCode,
+                ResponseDescription: stkData.ResponseDescription,
+                CustomerMessage: stkData.CustomerMessage
+            }
         });
 
     } catch (error) {
-        console.error('Lipana Error Details:', {
+        console.error('M-Pesa Error Details:', {
             message: error.message,
-            stack: error.stack,
-            response: error.response?.data
+            stack: error.stack
         });
 
         return res.status(500).json({
