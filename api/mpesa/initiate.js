@@ -44,10 +44,9 @@ export default async function handler(req, res) {
 
         console.log('Lipana Secret Key present:', process.env.LIPANA_SECRET_KEY ? 'Yes' : 'No');
 
-        // Import Lipana SDK dynamically
-        const { default: Lipana } = await import('@lipana/sdk');
+        // Import and initialize Lipana SDK
+        const Lipana = require('@lipana/sdk');
 
-        // Initialize Lipana
         const lipana = new Lipana({
             apiKey: process.env.LIPANA_SECRET_KEY,
             environment: 'production'
