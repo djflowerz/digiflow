@@ -44,20 +44,14 @@ export default async function handler(req, res) {
 
         console.log('Lipana Secret Key present:', process.env.LIPANA_SECRET_KEY ? 'Yes' : 'No');
 
-        // Import Lipana SDK - handle both CommonJS and ES module exports
-        const LipanaModule = require('@lipana/sdk');
-        const Lipana = LipanaModule.default || LipanaModule;
+        if (!process.env.LIPANA_SECRET_KEY) {
+            console.error('LIPANA_SECRET_KEY not configured');
+            return res.status(500).json({ error: 'Payment gateway not configured' });
+        }
 
-        console.log('Lipana SDK imported, type:', typeof Lipana);
+        // Use direct HTTP call to Lipana API instead of SDK
+        const lipanaApiUrl = 'https://api.lipana.dev/v1/stk/push';
 
-        const lipana = new Lipana({
-            apiKey: process.env.LIPANA_SECRET_KEY,
-            environment: 'production'
-        });
-
-        console.log('Lipana SDK initialized successfully');
-
-        // Initiate STK Push
         const callbackUrl = `https://digiflowstore-git-main-digiflow.vercel.app/api/webhooks/mpesa?orderId=${orderId}`;
 
         console.log('Initiating STK push with:', {
@@ -67,20 +61,35 @@ export default async function handler(req, res) {
             accountReference: orderId || 'Digiflow'
         });
 
-        const response = await lipana.stk.initiate({
-            amount: parseFloat(amount),
-            phone: phone,
-            callback_url: callbackUrl,
-            account_reference: orderId || 'Digiflow',
-            transaction_desc: `Payment for Order ${orderId}`
+        // Make direct HTTP request to Lipana API
+        const lipanaResponse = await fetch(lipanaApiUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${process.env.LIPANA_SECRET_KEY}`
+            },
+            body: JSON.stringify({
+                amount: parseFloat(amount),
+                phone: phone,
+                callback_url: callbackUrl,
+                account_reference: orderId || 'Digiflow',
+                transaction_desc: `Payment for Order ${orderId}`
+            })
         });
 
-        console.log('Lipana response:', response);
+        const lipanaData = await lipanaResponse.json();
+
+        console.log('Lipana API response status:', lipanaResponse.status);
+        console.log('Lipana API response:', lipanaData);
+
+        if (!lipanaResponse.ok) {
+            throw new Error(lipanaData.message || lipanaData.error || 'Lipana API request failed');
+        }
 
         return res.status(200).json({
             success: true,
             message: 'STK push initiated successfully',
-            data: response
+            data: lipanaData
         });
 
     } catch (error) {
